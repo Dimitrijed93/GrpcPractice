@@ -9,12 +9,21 @@ import (
 
 	greetpb "github.com/dimitrijed93/demo"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
 	fmt.Printf("client")
 
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	cert := "ssl/ca.crt"
+	creds, sslErr := credentials.NewClientTLSFromFile(cert, "")
+
+	opts := grpc.WithTransportCredentials(creds)
+
+	if sslErr != nil {
+		log.Fatalf("error setting up cert")
+	}
+	conn, err := grpc.Dial("localhost:50051", opts)
 
 	if err != nil {
 		log.Fatalf("could not connect")
@@ -27,7 +36,6 @@ func main() {
 	// doServerStreaming(c)
 	// doClientStreaming(c)
 	doBiDiStreaming(c)
-
 }
 
 func doBiDiStreaming(c greetpb.GreetServiceClient) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"strconv"
 	"time"
@@ -12,6 +13,9 @@ import (
 	greetpb "github.com/dimitrijed93/demo"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 type server struct{}
@@ -89,8 +93,31 @@ func (*server) GreetEveryone(stream greetpb.GreetService_GreetEveryoneServer) er
 
 }
 
+func (*server) SquareRoot(ctx context.Context, req *greetpb.SquareRootRequest) (*greetpb.SquareRootResponse, error) {
+	number := req.GetNumber()
+	if number < 0 {
+		return nil, status.Errorf(
+			codes.InvalidArgument, fmt.Sprintf("Negative number: %v", number))
+	}
+	return &greetpb.SquareRootResponse{
+		NumberRoot: math.Sqrt(float64(number)),
+	}, nil
+}
+
 func main() {
 	fmt.Printf("server")
+
+	certFile := "ssl/server.crt"
+	keyFile := "ssl/server.pem"
+
+	creds, sslErr := credentials.NewServerTLSFromFile(certFile, keyFile)
+
+	opt := grpc.Creds(creds)
+
+	if sslErr != nil {
+		log.Fatalf("Fail loading cert")
+		return
+	}
 
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 
@@ -98,7 +125,7 @@ func main() {
 		log.Fatalf("Failed to listen")
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(opt)
 	greetpb.RegisterGreetServiceServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
